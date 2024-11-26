@@ -27,3 +27,4 @@ typedef enum { FALSE,
                TRUE } Boolean;
 
 #endif
+// extern char userFile[20];  // 宣告 userFile 變數
