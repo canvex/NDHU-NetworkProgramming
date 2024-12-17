@@ -6,7 +6,7 @@ INC = -Iinclude
 SRCS = $(wildcard src/*.c)
 
 # 排除特定檔案
-EXCLUDED_SRCS = src/who.c src/name.c
+EXCLUDED_SRCS = src/who.c src/name.c src/tell.c src/yell.c
 SHELL_SRCS = $(filter-out $(EXCLUDED_SRCS), $(SRCS))
 
 # 修正 patsubst 語法
@@ -14,7 +14,7 @@ OBJS = $(patsubst src/%.c, obj/%.o, $(SHELL_SRCS))
 
 .PHONY: clean all
 
-all: shell who name
+all: shell who name tell yell
 
 # 生成可執行檔案 bin/shell
 shell: $(OBJS)
@@ -30,6 +30,16 @@ who:
 name:
 	@mkdir -p bin
 	@$(CC) $(CFLAGS) $(INC) src/name.c -o bin/name
+
+# 生成獨立的 tell 可執行檔案
+tell:
+	@mkdir -p bin
+	@$(CC) $(CFLAGS) $(INC) src/tell.c -o bin/tell
+
+# 生成獨立的 yell 可執行檔案
+yell:
+	@mkdir -p bin
+	@$(CC) $(CFLAGS) $(INC) src/yell.c -o bin/yell
 
 # 生成中間文件 obj/*.o
 obj/%.o: src/%.c

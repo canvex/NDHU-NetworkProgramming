@@ -8,15 +8,18 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-char buildCmd[100][100] = {"printenv", "setenv", "quit", "exit", "help"};
+char buildCmd[100][100] = {"printenv", "setenv", "quit", "exit", "help", "python3"};
 char NonbuildCmd[100][100];
-int buildCmdCount = 5;     // same as buildCmd
+int buildCmdCount = 6;     // same as buildCmd
 int NonbuildCmdCount = 0;  // same as buildCmd
 // scan the bin directory for executables, use it if exist, or else use the
 // system executables.
 void loadBin() {
     // scan the bin directory for executables, use it if exist, or else use the
     // system executables.
+    NonbuildCmdCount = 0;
+    NonbuildCmd[100][100];
+    memset(NonbuildCmd, 0, sizeof(NonbuildCmd));
     DIR* d;
     struct dirent* dir;
     d = opendir("./bin");

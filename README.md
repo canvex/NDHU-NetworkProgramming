@@ -13,3 +13,7 @@ working_dir
     ├── Makefile      // script for compile
     └── your_service  // this is executable
 ```
+
+```
+telnet 127.0.0.1 2486
+```

@@ -80,14 +80,25 @@ void exeNonBuildin(command_t* cmd) {
     if (pid == 0) {  // 子進程
         char* args[MAX_ARGS + 2];
         args[0] = cmd->command;  // 第一個參數是命令名
+
+        // 填充參數
         for (int i = 0; i < cmd->param_count; i++) {
-            args[i + 1] = cmd->parameter[i];  // 填充參數
+            args[i + 1] = cmd->parameter[i];
         }
         args[cmd->param_count + 1] = NULL;  // 最後一個元素設置為 NULL
 
+        // 如果命令是 python3，設置檔案的完整路徑
+        if (strcmp(args[0], "python3") == 0) {
+            strcpy(args[0], "/usr/bin/python3");
+
+            // 構造檔案完整路徑
+            char path[100] = "./src/";
+            strcat(path, args[1]);
+            args[1] = path;
+        }
+
         // 執行命令
-        // printf("child started with PID %ld\n", (long)getpid());
-        execvp(args[0], args);  // 使用 args[0] 作為命令名
+        execvp(args[0], args);
 
         // 如果 execvp 返回，說明出錯了
         perror("execvp");
@@ -110,6 +121,8 @@ void exeBuildin(command_t* cmd) {
     } else if (strcmp(cmd->command, "quit") == 0 ||
                strcmp(cmd->command, "exit") == 0) {
         quit();
+    } else if (strcmp(cmd->command, "python3") == 0) {
+        exeNonBuildin(cmd);
     } else {
         exeNonBuildin(cmd);
     }
@@ -199,18 +212,4 @@ void exeNormalPipe(command_t* cmd) {
     // 等待兩個子進程完成
     waitpid(pid1, NULL, 0);
     waitpid(pid2, NULL, 0);
-
-    // switch (fork()) {
-    //     case -1:
-    //         perror("fork");
-
-    //         exit(EXIT_FAILURE);
-    //     case 0:
-    //         doChild(fd, exeArgv0);
-    //         break;
-    //     default:
-    //         doParent(fd, exeArgv1);
-    //         wait(NULL);
-    //         break;
-    // }
 }
