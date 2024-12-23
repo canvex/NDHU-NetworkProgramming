@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
     FILE* fin = fopen(userFile, "r");
     int mypid = getppid();
     int pidList[100];
-    int count = 0;
+    int count = 0, sourceID = -1;
     if (argc < 2) {
         fprintf(stderr, "Usage: yell <message>\n");
         exit(EXIT_FAILURE);
@@ -32,6 +32,7 @@ int main(int argc, char** argv) {
         pidList[count++] = pid;
         if (pid == mypid) {  // 拿source的名字
             strcpy(sourceName, name);
+            sourceID = uid;
             // printf("%4d\t%s\t%s:%d\t\t<-(myName)\n\r", uid, name, ip, port);
         }
     }
@@ -39,7 +40,7 @@ int main(int argc, char** argv) {
 
     // 組合訊息
     char formatted_message[256] = {0};
-    snprintf(formatted_message, sizeof(formatted_message), "\n<User %s(%d) told you>:", sourceName, atoi(argv[0]));
+    snprintf(formatted_message, sizeof(formatted_message), "\n<User %s(%d) yell to  you>:", sourceName, sourceID);
     for (int i = 1; i < argc; i++) {
         strcat(formatted_message, " ");
         strcat(formatted_message, argv[i]);
@@ -55,8 +56,10 @@ int main(int argc, char** argv) {
         // 打開 FIFO
         int fd = open(targetFifo, O_WRONLY | O_NONBLOCK);
         if (fd == -1) {
+            printf("User ID: %d doesn't exist!\n", i);
             perror("Failed to open target FIFO");
-            exit(EXIT_FAILURE);
+            // exit(EXIT_FAILURE);
+            continue;
         }
 
         // 寫入訊息

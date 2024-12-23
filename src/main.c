@@ -24,6 +24,7 @@ command_t *parser(char *commandStr);
 #define LISTEN_PORT 2486  // 假設的監聽埠號，實際可根據需求修改
 
 #define TARGET_PREFIX "np_sv"
+#define LOGINNAME_PREFIX "loginname"
 #define SERVER_FIFO "/tmp/np_sv"
 #define SERVER_FIFO_TEMPLATE "/tmp/np_sv.%ld"
 #define SERVER_FIFO_NAME_LEN (sizeof(SERVER_FIFO_TEMPLATE) + 20)
@@ -40,9 +41,10 @@ static char serverFifo[SERVER_FIFO_NAME_LEN];
 
 void init() {
     // 清除所有環境變數
-    clearenv();
+    // clearenv();
     // 設置 PATH 環境變數
-    setenv("PATH", "bin:.", 1);  // 1 表示覆蓋已存在的 PATH
+    // setenv("PATH", "bin:.", 1);  // 1 表示覆蓋已存在的 PATH
+    setenv("PATH", "/home/brian/brian-HW/hw3/bin", 1);
 
     // 你可以在這裡添加其他初始化代碼
 }
@@ -95,20 +97,69 @@ void initremoveFIFO() {
 
     // 遍歷目錄檔案
     while ((entry = readdir(dir)) != NULL) {
-        // 檢查檔案名稱是否以 "np_sv" 開頭
-        if (strncmp(entry->d_name, TARGET_PREFIX, strlen(TARGET_PREFIX)) == 0) {
+        // 檢查檔案名稱是否以 TARGET_PREFIX 或 LOGINNAME_PREFIX 開頭
+        if (strncmp(entry->d_name, TARGET_PREFIX, strlen(TARGET_PREFIX)) == 0 ||
+            strncmp(entry->d_name, LOGINNAME_PREFIX, strlen(LOGINNAME_PREFIX)) == 0) {
             // 拼接完整路徑
             snprintf(path, sizeof(path), "/tmp/%s", entry->d_name);
 
+            // 刪除檔案
             if (remove(path) == 0) {
                 printf("Deleted: %s\n", path);
             } else {
-                perror("Failed to delete FIFO file");
+                perror("Failed to delete file");
             }
         }
     }
 
     closedir(dir);
+}
+
+void delete_line_by_pid(int pid) {
+    const char *filename = "/tmp/userlist";  // 檔案路徑
+    FILE *file = fopen(filename, "r+");
+    if (file == NULL) {
+        perror("Unable to open file");
+        return;
+    }
+
+    // 創建一個暫時的檔案用來存放更新後的資料
+    FILE *tempFile = fopen("/tmp/tempfile.txt", "w");
+    if (tempFile == NULL) {
+        perror("Unable to create temporary file");
+        fclose(file);
+        return;
+    }
+
+    char line[256];
+    int target_pid;
+    while (fgets(line, sizeof(line), file)) {
+        // 假設 PID 在行的最後，並且 PID 是由空白分隔的
+        if (sscanf(line, "%*d %*s %*s %*d %d", &target_pid) == 1) {
+            // 如果 PID 匹配，則跳過這一行
+            if (target_pid == pid) {
+                continue;
+            }
+        }
+        // 寫入到臨時檔案
+        fputs(line, tempFile);
+    }
+
+    fclose(file);
+    fclose(tempFile);
+
+    // 用新的檔案覆蓋舊的檔案
+    if (remove(filename) != 0) {
+        perror("Unable to delete original file");
+        return;
+    }
+
+    if (rename("/tmp/tempfile.txt", filename) != 0) {
+        perror("Unable to rename temporary file");
+        return;
+    }
+
+    printf("PID %d has been removed from %s\n", pid, filename);
 }
 
 // 信號處理函數
@@ -118,12 +169,49 @@ static void sig_handler(int sig) {
         int pid = waitpid(-1, &status, WNOHANG);  // WNOHANG 使其不會阻塞
         if (pid > 0) {
             fprintf(stderr, "Child PID=%d finished.\n", pid);
+            delete_line_by_pid(pid);
 
         } else if (pid == 0) {
             // 沒有子進程結束
         } else {
             // perror("waitpid error");
         }
+    }
+}
+
+char *readName() {
+    int mypid = getpid();                                      // 取得目前的 PID
+    char path[100];                                            // 構建檔案路徑
+    snprintf(path, sizeof(path), "/tmp/loginname.%d", mypid);  // 動態生成檔案路徑
+
+    FILE *file = fopen(path, "r");  // 打開檔案進行讀取
+    if (file == NULL) {             // 檢查檔案是否成功打開
+        perror("無法打開檔案");
+        return NULL;
+    }
+
+    char buffer[256];                                   // 暫存名稱的緩衝區
+    if (fgets(buffer, sizeof(buffer), file) != NULL) {  // 讀取檔案內容
+        fclose(file);                                   // 關閉檔案
+        size_t len = strlen(buffer);
+
+        // 移除換行符號（若存在）
+        if (len > 0 && buffer[len - 1] == '\n') {
+            buffer[len - 1] = '\0';
+        }
+
+        // 動態分配記憶體儲存名稱
+        char *name = malloc(len);  // 分配記憶體
+        if (name == NULL) {
+            perror("記憶體分配失敗");
+            return NULL;
+        }
+        strcpy(name, buffer);  // 將名稱複製到新分配的記憶體中
+        return name;
+    } else {
+        printf("檔案內容為空或讀取失敗。\n");
+        fclose(file);
+        return NULL;
     }
 }
 
@@ -144,8 +232,24 @@ void makeFIFO() {
     }
 }
 
+void loginShell() {
+    command_t *cmd = (command_t *)malloc(sizeof(command_t));
+    // 清空參數陣列，確保不會保留之前的數據
+    for (int i = 0; i < MAX_COMMAND_PARAMS; i++) {
+        cmd->parameter[i][0] = '\0';  // 設定每個參數為空字串
+        cmd->command[i][0] = '\0';
+    }
+
+    strcpy(cmd->command[0], "login");
+    cmd->command_count = 1;
+    cmd->param_count = 0;  // 初始化參數數量
+    cmd->pipe_flag = 0;    // 初始化 pipe_flag
+
+    exepython(cmd);
+}
+
 // 伺服器邏輯
-void server(int connfd, struct sockaddr_in *cliaddr) {
+void shell(int connfd, struct sockaddr_in *cliaddr) {
     int serverFd;
     command_t *cmd = NULL;
 
@@ -168,14 +272,20 @@ void server(int connfd, struct sockaddr_in *cliaddr) {
     dup2(connfd, STDERR_FILENO);  // 標準錯誤
     setbuf(stdout, NULL);
     system("clear");  // 或 system("cls"); 根據你的操作系統選擇
+    // sleep(15);
     printf("MyIP=%s, MyPORT=%d ,MyPID=%d\n", myIP, myPORT, getpid());
+    // sleep(15);
     init();
     loadBin();
 
     fd_set readfds;
     char buffer[256];
-    printf("\nMyShell%% ");
 
+    printf("\nWelcome to Shell\n ");
+    loginShell();
+    char *name = readName();
+    setenv("loginname", name, 1);
+    printf("\n(%s)%% ", name);
     while (1) {
         FD_ZERO(&readfds);
         FD_SET(connfd, &readfds);
@@ -197,10 +307,11 @@ void server(int connfd, struct sockaddr_in *cliaddr) {
             } else {
                 buffer[strcspn(buffer, "\r\n")] = '\0';
                 strcpy(commandStr, buffer);
+
                 // printf("Received from client: %s\n", buffer);
                 if (commandStr == NULL || strlen(commandStr) == 0) {
                     // free(commandStr);
-                    printf("\nMyShell%% ");
+                    printf("\n(%s)%% ", name);
                     continue;
                 }
                 // 解析命令
@@ -218,13 +329,17 @@ void server(int connfd, struct sockaddr_in *cliaddr) {
                         printf("pipe command\n\r");
                         exeNormalPipe(cmd);
                         break;
+                    case 3:
+                        printf("python command\n\r");
+                        exepython(cmd);
+                        break;
                     case 87:
                         printf("I don't know who are you [%s].\n\r", cmd->unknown_command);
                 }
                 if (cmd != NULL) {
                     free(cmd);
                 }
-                printf("\nMyShell%% ");
+                printf("\n(%s)%% ", name);
             }
         }
         if (FD_ISSET(serverFd, &readfds)) {
@@ -232,7 +347,7 @@ void server(int connfd, struct sockaddr_in *cliaddr) {
             if (n > 0) {
                 buffer[n] = '\0';
                 send(connfd, buffer, n, 0);
-                printf("\nMyShell%% ");
+                printf("\n(%s)%% ", name);
                 // printf("FIFO Message Sent: %s\n", buffer);
             }
         }
@@ -306,7 +421,7 @@ int main() {
             // printf("Child started\n");
             // 子行程執行伺服器邏輯
             close(listenfd);  // 關閉父行程的監聽 socket
-            server(connfd, &cliaddr);
+            shell(connfd, &cliaddr);
             exit(0);
         } else {
             // 父行程註冊使用者

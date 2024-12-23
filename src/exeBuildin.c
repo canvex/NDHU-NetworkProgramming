@@ -10,33 +10,8 @@
 #define READ_END 0
 #define WRITE_END 1
 
-// void doChild(int fd[], char* commandArgv[]) {
-//     // 關閉讀管道，子進程只需要寫管道
-//     close(fd[READ_END]);
-//     // 將標準輸出重定向到管道
-//     dup2(fd[WRITE_END], STDOUT_FILENO);
-//     close(fd[WRITE_END]);
-
-//     // 執行第一個命令
-//     if (execvp(commandArgv[0], commandArgv) < 0) {
-//         perror("execvp");
-//         exit(EXIT_FAILURE);
-//     }
-// }
-
-// void doParent(int fd[], char* commandArgv[]) {
-//     // 關閉寫管道，父進程只需要讀管道
-//     close(fd[WRITE_END]);
-//     // 將標準輸入重定向到管道
-//     dup2(fd[READ_END], STDIN_FILENO);
-//     close(fd[READ_END]);
-
-//     // 執行第二個命令
-//     if (execvp(commandArgv[0], commandArgv) < 0) {
-//         perror("execvp");
-//         exit(EXIT_FAILURE);
-//     }
-// }
+extern char pythonCmd[100][100];
+extern int pythonCmdCount;
 
 void quit() {
     printf("\nGoodBye\n");
@@ -80,23 +55,28 @@ void exeNonBuildin(command_t* cmd) {
     if (pid == 0) {  // 子進程
         char* args[MAX_ARGS + 2];
         args[0] = cmd->command;  // 第一個參數是命令名
+        char tmpCmd[100];
+        int pos = 0;
 
+        // // 如果命令是 .py，設置檔案的完整路徑
+        // for (int i = 0; i < pythonCmdCount; i++) {
+        //     if (strcmp(args[0], pythonCmd[i]) == 0) {
+        //         args[0] = "/usr/bin/python3";
+        //         // 分配足夠空間來儲存檔案名稱並附加 .py 副檔名
+        //         char python_filename[200];
+        //         snprintf(python_filename, sizeof(python_filename), "./bin/%s.py", cmd->command[0]);
+        //         // 設定 args[1] 為格式化後的 Python 檔案路徑
+        //         args[1] = python_filename;
+        //         // args[1] = "/home/brian/brian-HW/hw3/bin/login.py";
+        //         pos = 1;
+        //         break;
+        //     }
+        // }
         // 填充參數
         for (int i = 0; i < cmd->param_count; i++) {
-            args[i + 1] = cmd->parameter[i];
+            args[pos + i + 1] = cmd->parameter[i];
         }
-        args[cmd->param_count + 1] = NULL;  // 最後一個元素設置為 NULL
-
-        // 如果命令是 python3，設置檔案的完整路徑
-        if (strcmp(args[0], "python3") == 0) {
-            strcpy(args[0], "/usr/bin/python3");
-
-            // 構造檔案完整路徑
-            char path[100] = "./src/";
-            strcat(path, args[1]);
-            args[1] = path;
-        }
-
+        args[pos + cmd->param_count + 1] = NULL;  // 最後一個元素設置為 NULL
         // 執行命令
         execvp(args[0], args);
 
@@ -105,9 +85,9 @@ void exeNonBuildin(command_t* cmd) {
         exit(EXIT_FAILURE);
     } else if (pid > 0) {  // 父進程
         int status;
-        waitpid(pid, &status, 0);
+        waitpid(pid, &status, 0);  // 等待子進程結束
     } else {
-        perror("fork");
+        perror("fork 失敗");
     }
 }
 

@@ -1,6 +1,7 @@
 #include "../include/parse.h"
 
 #include <dirent.h>
+#include <math.h>
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <stdio.h>
@@ -8,59 +9,121 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-char buildCmd[100][100] = {"printenv", "setenv", "quit", "exit", "help", "python3"};
+char buildCmd[100][100] = {"printenv", "setenv", "quit", "exit", "help"};
+
 char NonbuildCmd[100][100];
-int buildCmdCount = 6;     // same as buildCmd
-int NonbuildCmdCount = 0;  // same as buildCmd
+char pythonCmd[100][100];
+int buildCmdCount = 5;  // same as buildCmd
+int NonbuildCmdCount = 0;
+int pythonCmdCount = 0;
 // scan the bin directory for executables, use it if exist, or else use the
 // system executables.
 void loadBin() {
     // scan the bin directory for executables, use it if exist, or else use the
     // system executables.
-    NonbuildCmdCount = 0;
-    NonbuildCmd[100][100];
-    memset(NonbuildCmd, 0, sizeof(NonbuildCmd));
+    // NonbuildCmdCount = 0;
+    // NonbuildCmd[100][100];
+    // memset(NonbuildCmd, 0, sizeof(NonbuildCmd));
     DIR* d;
     struct dirent* dir;
-    d = opendir("./bin");
+    // d = opendir("./bin");
+    d = opendir("/home/brian/brian-HW/hw3/bin");
     if (d) {
         while ((dir = readdir(d)) != NULL) {
-            if (dir->d_type == 8) {
-                strcpy(NonbuildCmd[NonbuildCmdCount], dir->d_name);
-                NonbuildCmdCount++;
-                // printf("%s\n", dir->d_name);
+            // 檢查檔案是否為普通檔案
+            if (dir->d_type == DT_REG) {
+                // 如果檔案是 .py 檔案
+                if (strstr(dir->d_name, ".py") != NULL) {
+                    // 去除 .py 副檔名
+                    char* dot = strrchr(dir->d_name, '.');
+                    if (dot != NULL) {
+                        *dot = '\0';  // 將 '.' 及其後的部分去除
+                    }
+
+                    // 將處理過的檔案名稱加入 pythonCmd
+                    if (pythonCmdCount < 100) {
+                        strcpy(pythonCmd[pythonCmdCount], dir->d_name);
+                        pythonCmdCount++;
+                    }
+
+                    // 避免將 Python 指令重複加入到 NonbuildCmd，直接繼續下一個檔案
+                    continue;
+                }
+
+                // 其他檔案加入 NonbuildCmd
+                if (NonbuildCmdCount < 100) {
+                    strcpy(NonbuildCmd[NonbuildCmdCount], dir->d_name);
+                    NonbuildCmdCount++;
+                }
             }
         }
+
+        // 列印 NonbuildCmd (普通可執行檔案)
+        printf("Non-build Commands: ");
         for (int i = 0; i < NonbuildCmdCount; i++) {
-            printf("%s,", NonbuildCmd[i]);
+            printf("%s, ", NonbuildCmd[i]);
         }
+
+        // 列印 pythonCmd (.py 檔案)
+        printf("\nPython Commands: ");
+        for (int i = 0; i < pythonCmdCount; i++) {
+            printf("%s, ", pythonCmd[i]);
+        }
+
         closedir(d);
     }
 }
 void isBuildin(command_t* cmd) {
+    int found = 0;  // 標記是否找到匹配指令
+
     for (int i = 0; i < cmd->command_count; i++) {
-        for (int j = 0; j < (buildCmdCount > NonbuildCmdCount ? buildCmdCount : NonbuildCmdCount); j++) {
+        // 比對內建指令
+        for (int j = 0; j < buildCmdCount; j++) {
             if (strcmp(cmd->command[i], buildCmd[j]) == 0) {
                 if (cmd->pipe_flag == 1)
-                    cmd->exeflag = 2;  // 內建指令且是pipe
+                    cmd->exeflag = 2;  // 內建指令且是 pipe
                 else
                     cmd->exeflag = 0;  // 內建指令
+                found = 1;
                 break;
             }
+        }
+
+        // 如果已找到匹配指令，跳過其他檢查
+        if (found) continue;
+
+        // 比對 nonbuildin 指令
+        for (int j = 0; j < NonbuildCmdCount; j++) {
             if (strcmp(cmd->command[i], NonbuildCmd[j]) == 0) {
                 if (cmd->pipe_flag == 1)
-                    cmd->exeflag = 2;  // bin裡的指令且是pipe
+                    cmd->exeflag = 2;  // bin 裡的指令且是 pipe
                 else
-                    cmd->exeflag = 1;  // bin裡的指令
+                    cmd->exeflag = 1;  // bin 裡的指令
+                found = 1;
                 break;
-            } else {
-                cmd->exeflag = 87;  // 未知指令
             }
         }
-        if (cmd->exeflag != 0) {
-            strcpy(cmd->unknown_command, cmd->command[i]);
-            return;
+
+        if (found) continue;
+
+        // 比對 python 指令
+        for (int j = 0; j < pythonCmdCount; j++) {
+            if (strcmp(cmd->command[i], pythonCmd[j]) == 0) {
+                if (cmd->pipe_flag == 1)
+                    cmd->exeflag = 2;  // Python 裡的指令且是 pipe
+                else
+                    cmd->exeflag = 3;  // Python 裡的指令
+                found = 1;
+                break;
+            }
         }
+
+        // 如果都沒找到，設置為未知指令
+        if (!found) {
+            cmd->exeflag = 87;  // 未知指令
+            strcpy(cmd->unknown_command, cmd->command[i]);
+        }
+        return;  // 直接結束函數，因為已確定未知指令
     }
     return;
 }

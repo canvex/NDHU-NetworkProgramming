@@ -11,7 +11,7 @@ char userFile[20] = "/tmp/userlist";
 
 int main(int argc, char** argv) {
     int destTarget = atoi(argv[1]);
-    int targetID = -1;
+    int targetID = -1, sourceID = -1;
     unsigned int uid, port, pid;
     char ip[15], name[30];
     char buf[100];
@@ -32,10 +32,12 @@ int main(int argc, char** argv) {
     while (fscanf(fin, "%d %s %s %d %d", &uid, name, ip, &port, &pid) != EOF) {
         if (destTarget == uid) {  // 拿目標的pid
             targetID = pid;
+
             // printf("%4d\t%s\t%s:%d\t\t<-(targetID)\n\r", uid, name, ip, port);
         }
         if (pid == mypid) {  // 拿source的名字
             strcpy(sourceName, name);
+            sourceID = uid;
             // printf("%4d\t%s\t%s:%d\t\t<-(myName)\n\r", uid, name, ip, port);
         }
     }
@@ -43,7 +45,7 @@ int main(int argc, char** argv) {
 
     // 組合訊息
     char formatted_message[256] = {0};
-    snprintf(formatted_message, sizeof(formatted_message), "\n<User %s(%d) told you>:", sourceName, destTarget);
+    snprintf(formatted_message, sizeof(formatted_message), "\n<User %s(%d) told you>:", sourceName, sourceID);
 
     for (int i = 2; i < argc; i++) {
         strcat(formatted_message, " ");
