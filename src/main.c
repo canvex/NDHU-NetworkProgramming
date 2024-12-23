@@ -43,8 +43,8 @@ void init() {
     // 清除所有環境變數
     // clearenv();
     // 設置 PATH 環境變數
-    // setenv("PATH", "bin:.", 1);  // 1 表示覆蓋已存在的 PATH
-    setenv("PATH", "/home/brian/brian-HW/hw3/bin", 1);
+    setenv("PATH", "bin:.", 1);  // 1 表示覆蓋已存在的 PATH
+    // setenv("PATH", "/home/brian/brian-HW/hw3/bin", 1);
 
     // 你可以在這裡添加其他初始化代碼
 }

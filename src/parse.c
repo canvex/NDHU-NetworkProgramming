@@ -26,8 +26,8 @@ void loadBin() {
     // memset(NonbuildCmd, 0, sizeof(NonbuildCmd));
     DIR* d;
     struct dirent* dir;
-    // d = opendir("./bin");
-    d = opendir("/home/brian/brian-HW/hw3/bin");
+    d = opendir("./bin");
+    // d = opendir("/home/brian/brian-HW/hw3/bin");
     if (d) {
         while ((dir = readdir(d)) != NULL) {
             // 檢查檔案是否為普通檔案
