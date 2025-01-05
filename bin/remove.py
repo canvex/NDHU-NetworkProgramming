@@ -1,7 +1,7 @@
 import mysql.connector
 from mysql.connector import Error
 import sys
-from mysqlConn import create_connection  # 假設你已經有 create_connection 函數
+from mysqlConn import create_connection 
 
 def remove_users_from_group(group_name, inviter, users_to_remove):
     try:
@@ -17,7 +17,7 @@ def remove_users_from_group(group_name, inviter, users_to_remove):
         group_result = cursor.fetchone()
 
         if group_result[0] == 0:
-            print("Group not found !")
+            print("Group not found!")
             return
 
         # 確認群組擁有者
@@ -33,8 +33,14 @@ def remove_users_from_group(group_name, inviter, users_to_remove):
         users_not_in_group = []
         users_not_found = []
         users_removed = []
+        users_cannot_remove = []
 
         for user in users_to_remove:
+            # 禁止主人移除自己
+            if user == owner_name:
+                users_cannot_remove.append(user)
+                continue
+
             # 確認使用者是否存在
             check_user_query = "SELECT COUNT(*) FROM users WHERE username = %s"
             cursor.execute(check_user_query, (user,))
@@ -60,12 +66,14 @@ def remove_users_from_group(group_name, inviter, users_to_remove):
         connection.commit()
 
         # 顯示結果
+        if users_cannot_remove:
+            print(f"{' '.join(users_cannot_remove)} cannot be removed because you are the group owner.")
         if users_not_in_group:
             print(f"{' '.join(users_not_in_group)} is not in group.")
         if users_removed:
-            print(f"{' '.join(users_removed)} remove success !")
+            print(f"{' '.join(users_removed)} remove success!")
         if users_not_found:
-            print(f"{' '.join(users_not_found)} not found !")
+            print(f"{' '.join(users_not_found)} not found!")
 
     except Error as e:
         print(f"資料庫連線失敗，錯誤: {e}")

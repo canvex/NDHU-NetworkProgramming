@@ -21,35 +21,34 @@ def update_name_if_pid_match(login_name):
         with open(file_path, 'r', encoding='utf-8') as file:
             lines = [line.strip() for line in file.readlines() if line.strip()]  # 過濾掉空行並去除每行的換行符
 
-        # 取得最後一行資料並分析
-        if lines:
-            last_line = lines[-1].split()  # 使用split()來分隔各欄位，默認會以空白作為分隔符
-            last_pid = last_line[-1]  # 假設PID在最後一個欄位
-
-            # 獲取父進程的 PID
-            parent_pid = str(os.getppid())  # 確保轉換為字串
-
-            # 如果最後一個 PID 與父進程的 PID 一樣，更新名字
-            if last_pid == parent_pid:
-                # 替換名字為 login_name
-                last_line[1] = login_name  # 假設名字是第二欄位
-                lines[-1] = " ".join(last_line)  # 更新最後一行，這裡不加換行符
-
-                # 移除所有空行
-                lines = [line for line in lines if line.strip()]  # 過濾掉空行
-
-                # 寫回更新後的內容
-                with open(file_path, 'w', encoding='utf-8') as file:
-                    # 使用writelines時，已經在lines中保留了換行符，因此不需要額外添加
-                    file.writelines([line + "\n" for line in lines])  # 加回換行符
-
-                print(f"Updated name to '{login_name}' for PID {parent_pid}")
-            else:
-                print(f"PID {parent_pid} does not match the last entry's PID.")
-        else:
+        if not lines:
             print("The file is empty.")
+            return
+
+        # 獲取父進程的 PID
+        parent_pid = str(os.getppid())  # 確保轉換為字串
+
+        updated = False  # 用來檢查是否有匹配的 PID 並更新
+        updated_lines = []
+
+        for line in lines:
+            parts = line.split()  # 使用 split() 分隔欄位
+            if parts[-1] == parent_pid:  # 假設 PID 在最後一欄
+                parts[1] = login_name  # 假設名字在第二欄
+                updated = True
+            updated_lines.append(" ".join(parts))  # 更新該行
+
+        if updated:
+            # 寫回更新後的內容
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.writelines([line + "\n" for line in updated_lines])  # 每行加上換行符
+            print(f"Updated name to '{login_name}' for PID {parent_pid}")
+        else:
+            print(f"No matching PID ({parent_pid}) found in the file.")
+
     except Exception as e:
         print(f"An error occurred: {e}")
+
 
 
 

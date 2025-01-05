@@ -1,7 +1,7 @@
 import mysql.connector
 from mysql.connector import Error
 import sys
-from mysqlConn import create_connection  # 假設你已經有 create_connection 函數
+from mysqlConn import create_connection 
 
 def create_group(group_name, owner_name):
     try:
