@@ -13,3 +13,15 @@ working_dir
     ├── Makefile      // script for compile
     └── your_service  // this is executable
 ```
+
+## Start the Server
+
+```bash
+./bin/shell
+```
+
+## Connect to the Server
+
+```bash
+telnet 127.0.0.1 2486
+```
